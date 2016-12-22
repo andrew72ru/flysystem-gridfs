@@ -10,10 +10,9 @@ use League\Flysystem\Adapter\Polyfill\StreamedReadingTrait;
 use League\Flysystem\Config;
 use League\Flysystem\Util;
 use LogicException;
-use MongoGridFs;
-use MongoGridFSException;
-use MongoGridFSFile;
-use MongoRegex;
+use MongoDB\BSON\Regex;
+use MongoDB\GridFS\Bucket;
+use MongoDB\Model\BSONDocument;
 
 class GridFSAdapter extends AbstractAdapter
 {
@@ -22,28 +21,26 @@ class GridFSAdapter extends AbstractAdapter
     use StreamedReadingTrait;
 
     /**
-     * @var MongoGridFs Mongo GridFS client
+     * @var Bucket
      */
-    protected $client;
+    protected $bucket;
 
     /**
      * Constructor.
      *
-     * @param MongoGridFs $client
+     * @param Bucket $bucket
      */
-    public function __construct(MongoGridFs $client)
+    public function __construct(Bucket $bucket)
     {
-        $this->client  = $client;
+        $this->bucket  = $bucket;
     }
 
     /**
-     * Get the MongoGridFs instance.
-     *
-     * @return MongoGridFs
+     * @return Bucket
      */
-    public function getClient()
+    public function getBucket()
     {
-        return $this->client;
+        return $this->bucket;
     }
 
     /**
@@ -53,7 +50,7 @@ class GridFSAdapter extends AbstractAdapter
     {
         $location = $this->applyPathPrefix($path);
 
-        return $this->client->findOne($location) !== null;
+        return $this->bucket->findOne(['filename' => $location]) !== null;
     }
 
     /**
@@ -67,10 +64,7 @@ class GridFSAdapter extends AbstractAdapter
             $metadata['mimetype'] = $config->get('mimetype');
         }
 
-        return $this->writeObject($path, $contents, [
-            'filename' => $path,
-            'metadata' => $metadata,
-        ]);
+        return $this->writeObject($path, $contents, $metadata);
     }
 
     /**
@@ -102,9 +96,9 @@ class GridFSAdapter extends AbstractAdapter
      */
     public function getMetadata($path)
     {
-        $result = $this->client->findOne($path);
+        $result = $this->bucket->findOne(['filename' => $path]);
 
-        return $this->normalizeGridFSFile($result, $path);
+        return $this->normalizeBSONDocument($result, $path);
     }
 
     /**
@@ -136,9 +130,15 @@ class GridFSAdapter extends AbstractAdapter
      */
     public function delete($path)
     {
-        $file = $this->client->findOne($path);
+        $file = $this->bucket->findOne(['filename' => $path]);
 
-        return $file && $this->client->delete($file->file['_id']) !== false;
+        if (!$file) {
+            return false;
+        }
+
+        $this->bucket->delete($file['_id']);
+
+        return true;
     }
 
     /**
@@ -146,9 +146,9 @@ class GridFSAdapter extends AbstractAdapter
      */
     public function read($path)
     {
-        $file = $this->client->findOne($path);
+        $stream = $this->bucket->openDownloadStreamByName($path);
 
-        return $file ? ['contents' => $file->getBytes()] : false;
+        return ['contents' => stream_get_contents($stream)];
     }
 
     /**
@@ -174,11 +174,15 @@ class GridFSAdapter extends AbstractAdapter
     {
         $prefix = rtrim($this->applyPathPrefix($path), '/').'/';
 
-        $result = $this->client->remove([
-            'filename' => new MongoRegex(sprintf('/^%s/', $prefix)),
+        $files = $this->bucket->find([
+            'filename' => new Regex(sprintf('/^%s/', $prefix), ''),
         ]);
 
-        return $result === true;
+        foreach ($files as $file) {
+            $this->bucket->delete($file['_id']);
+        }
+
+        return true;
     }
 
     /**
@@ -192,13 +196,13 @@ class GridFSAdapter extends AbstractAdapter
             throw new BadMethodCallException('Recursive listing is not yet implemented');
         }
 
-        $keys = [];
-        $cursor = $this->client->find([
-            'filename' => new MongoRegex(sprintf('/^%s/', $dirname)),
+        $files = $this->bucket->find([
+            'filename' => new Regex(sprintf('/^%s/', $dirname), ''),
         ]);
-        foreach ($cursor as $file) {
-            $keys[] = $this->normalizeGridFSFile($file);
-        }
+
+        $keys = array_map(function ($file) {
+            return $this->normalizeBSONDocument($file);
+        }, $files->toArray());
 
         return Util::emulateDirectories($keys);
     }
@@ -212,42 +216,45 @@ class GridFSAdapter extends AbstractAdapter
      */
     protected function writeObject($path, $content, array $metadata)
     {
-        try {
-            if (is_resource($content)) {
-                $id = $this->client->storeFile($content, $metadata);
-            } else {
-                $id = $this->client->storeBytes($content, $metadata);
-            }
-        } catch (MongoGridFSException $e) {
-            return false;
+        $stream = $content;
+
+        if (!is_resource($content)) {
+            $stream = fopen('php://memory','r+');
+            fwrite($stream, $content);
+            rewind($stream);
         }
 
-        $file = $this->client->findOne(['_id' => $id]);
+        if (!isset($metadata['mimetype'])) {
+            $metadata['mimetype'] = Util::guessMimeType($path, $stream);
+        }
 
-        return $this->normalizeGridFSFile($file, $path);
+        $id = $this->bucket->uploadFromStream($path, $stream, ['metadata' => $metadata]);
+        $file = $this->bucket->findOne(['_id' => $id]);
+
+        return $this->normalizeBSONDocument($file, $path);
     }
 
     /**
-     * Normalize a MongoGridFs file to a response.
+     * Normalize a BSONDocument file to a response.
      *
-     * @param MongoGridFSFile $file
-     * @param string          $path
+     * @param BSONDocument $file
+     * @param string       $path
      *
      * @return array
      */
-    protected function normalizeGridFSFile(MongoGridFSFile $file, $path = null)
+    protected function normalizeBSONDocument(BSONDocument $file, $path = null)
     {
         $result = [
-            'path'      => trim($path ?: $file->getFilename(), '/'),
+            'path'      => trim($path ?: $file['filename'], '/'),
             'type'      => 'file',
-            'size'      => $file->getSize(),
-            'timestamp' => $file->file['uploadDate']->sec,
+            'size'      => $file['chunkSize'],
+            'timestamp' => $file['uploadDate']->toDateTime()->getTimestamp(),
         ];
 
         $result['dirname'] = Util::dirname($result['path']);
 
-        if (isset($file->file['metadata']) && !empty($file->file['metadata']['mimetype'])) {
-            $result['mimetype'] = $file->file['metadata']['mimetype'];
+        if (isset($file['metadata']) && !empty($file['metadata']['mimetype'])) {
+            $result['mimetype'] = $file['metadata']['mimetype'];
         }
 
         return $result;
