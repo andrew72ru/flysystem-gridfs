@@ -1,6 +1,6 @@
 <?php
 
-namespace andrew72ru\Flysystem\GridFS;
+namespace andrew72ru\flysystem\GridFS;
 
 use BadMethodCallException;
 use League\Flysystem\Adapter\AbstractAdapter;
