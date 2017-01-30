@@ -41,7 +41,7 @@ class GridFSTest extends \Codeception\Test\Unit
 
     protected function _after()
     {
-//        $this->bucket->drop();
+       $this->bucket->drop();
     }
 
     /**
