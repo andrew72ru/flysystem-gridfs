@@ -200,7 +200,7 @@ class GridFSAdapter extends AbstractAdapter
         }
 
         $files = $this->bucket->find([
-            'filename' => new Regex(sprintf('/^%s/', $dirname), ''),
+            'filename' => new Regex(sprintf('^%s', $dirname), ''),
         ]);
 
         $keys = array_map(function ($file) {
@@ -250,7 +250,7 @@ class GridFSAdapter extends AbstractAdapter
         $result = [
             'path'      => trim($path ?: $file['filename'], '/'),
             'type'      => 'file',
-            'size'      => $file['chunkSize'],
+            'size'      => $file['length'],
             'timestamp' => $file['uploadDate']->toDateTime()->getTimestamp(),
         ];
 
