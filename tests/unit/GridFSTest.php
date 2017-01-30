@@ -2,7 +2,7 @@
 
 
 use League\Flysystem\Config;
-use League\Flysystem\GridFS\GridFSAdapter;
+use andrew72ru\Flysystem\GridFS\GridFSAdapter;
 use MongoDB\Driver\Manager;
 use MongoDB\GridFS\Bucket;
 

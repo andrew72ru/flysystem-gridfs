@@ -20,13 +20,16 @@ composer require league/flysystem-gridfs
 
 ``` php
 <?php
-use League\Flysystem\GridFS\GridFSAdapter;
+use andrew72ru\Flysystem\GridFS\GridFSAdapter;
+use MongoDB\Driver\Manager;
+use MongoDB\GridFS\Bucket;
+
 use League\Flysystem\Filesystem;
 
 include __DIR__ . '/vendor/autoload.php';
 
-$mongoClient = new MongoClient();
-$gridFs = $mongoClient->selectDB('db_name')->getGridFS();
+$manager = new Manager('mongodb://localhost:27017');
+$bucket = new Bucket($this->manager, 'files-database');
 
-$adapter = new GridFSAdapter($gridFs);
+$adapter = new GridFSAdapter($bucket);
 ```

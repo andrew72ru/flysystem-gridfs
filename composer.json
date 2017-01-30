@@ -1,5 +1,5 @@
 {
-    "name": "league/flysystem-gridfs",
+    "name": "andrew72ru/flysystem-gridfs",
     "description": "Flysystem adapter for MongoDB GridFS",
     "license": "MIT",
     "authors": [
@@ -19,7 +19,7 @@
     },
     "autoload": {
         "psr-4": {
-            "League\\Flysystem\\GridFS\\": "src/"
+            "andrew72ru\\Flysystem\\GridFS\\": "src/"
         }
     },
     "config": {
