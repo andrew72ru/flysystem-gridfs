@@ -146,6 +146,9 @@ class GridFSAdapter extends AbstractAdapter
      */
     public function read($path)
     {
+        if(!$this->bucket->findOne(['filename' => $path]))
+            return false;
+
         $stream = $this->bucket->openDownloadStreamByName($path);
 
         return ['contents' => stream_get_contents($stream)];
@@ -237,8 +240,8 @@ class GridFSAdapter extends AbstractAdapter
     /**
      * Normalize a BSONDocument file to a response.
      *
-     * @param BSONDocument $file
-     * @param string       $path
+     * @param BSONDocument|array|null|object    $file
+     * @param string                            $path
      *
      * @return array
      */
