@@ -1,31 +1,31 @@
 {
-    "name": "andrew72ru/flysystem-gridfs",
-    "description": "Flysystem adapter for MongoDB (new, not legacy) GridFS",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Frank de Jonge",
-            "email": "info@frenky.net"
-        },
-      {
-        "name": "Andrew Zhdanovskih",
-        "email": "andrew72ru@gmail.com"
-      }
-    ],
-    "require": {
-        "php": ">=7.0.0",
-        "league/flysystem": "~1.0",
-        "mongodb/mongodb": "~1.1"
+  "name": "andrew72ru/flysystem-gridfs",
+  "description": "Flysystem adapter for MongoDB (new, not legacy) GridFS",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Frank de Jonge",
+      "email": "info@frenky.net"
     },
-    "require-dev": {
-      "codeception/codeception": "~2.2"
-    },
-    "autoload": {
-        "psr-4": {
-            "andrew72ru\\flysystem\\GridFS\\": "src/"
-        }
-    },
-    "config": {
-        "bin-dir": "bin"
+    {
+      "name": "Andrew Zhdanovskih",
+      "email": "andrew72ru@gmail.com"
     }
+  ],
+  "require": {
+    "php": ">=7.0.0",
+    "league/flysystem": "~1.0",
+    "mongodb/mongodb": "~1.1"
+  },
+  "require-dev": {
+    "codeception/codeception": "~2.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "andrew72ru\\flysystem\\GridFS\\": "src/"
+    }
+  },
+  "config": {
+    "bin-dir": "bin"
+  }
 }
